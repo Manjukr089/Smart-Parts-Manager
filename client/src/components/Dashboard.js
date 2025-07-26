@@ -12,6 +12,16 @@ function Dashboard() {
   const [totalValue, setTotalValue] = useState(0);
   const [topConsumed, setTopConsumed] = useState([]);
 
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+useEffect(() => {
+  const token = localStorage.getItem('token'); // or sessionStorage
+  setIsLoggedIn(!!token);
+}, []);
+
+
+
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -108,6 +118,7 @@ function Dashboard() {
 
         <button onClick={handleFetch} style={{ padding: '6px 14px' }}>Fetch</button>
       </div> */}
+
 <div style={{
   display: 'flex',
   flexWrap: 'wrap',
@@ -169,7 +180,9 @@ function Dashboard() {
 
       <div style={{ marginTop: '40px' }}>
         <h4 style={{ fontSize: '20px' }}>🧾 All Part Info</h4>
-        <PartTable parts={parts} />
+        {/* previouisly working */}
+        {/* <PartTable parts={parts} /> */}
+        <PartTable parts={parts} isLoggedIn={isLoggedIn} />
       </div>
     </div>
   );
