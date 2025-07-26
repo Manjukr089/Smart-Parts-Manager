@@ -1,5 +1,7 @@
 import React, { useState, useEffect} from 'react';
 import axios from 'axios';
+import API_BASE_URL from '../config';  // adjust path if needed
+
 // ✅ Helper to decode JWT
 const decodeToken = (token) => {
   try {
@@ -62,7 +64,8 @@ function UploadForm() {
         partFormData.append('month', parseInt(month));
         partFormData.append('year', parseInt(year));
 
-        await axios.post('http://localhost:5000/api/parts/upload', partFormData, config);
+        // await axios.post('http://localhost:5000/api/parts/upload', partFormData, config);
+        await axios.post(`${API_BASE_URL}/api/parts/upload`, partFormData, config);
       }
 
       if (salesFile) {
@@ -80,7 +83,8 @@ function UploadForm() {
 console.log("🔐 Token in localStorage:", localStorage.getItem('token'));
 const token = localStorage.getItem('token');
 const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-        await axios.post('http://localhost:5000/api/sales/upload', salesFormData, config);
+        // await axios.post('http://localhost:5000/api/sales/upload', salesFormData, config);
+        await axios.post(`${API_BASE_URL}/api/sales/upload`, salesFormData, config);
       }
 
       alert('✅ Upload successful!');

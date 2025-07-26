@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import PartTable from './PartTable';
+import API_BASE_URL from '../config';  // adjust path if needed
 
 function Dashboard() {
   const [branch, setBranch] = useState('Shimoga');
@@ -21,7 +22,8 @@ function Dashboard() {
 
   const fetchParts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/parts/fetch', {
+      // const res = await axios.get('http://localhost:5000/api/parts/fetch', {
+      const res = await axios.get(`${API_BASE_URL}/api/parts/fetch`, {
         params: { branch, month, year }
       });
 
@@ -55,7 +57,8 @@ function Dashboard() {
   // Fetch top consumed parts
   const fetchStats = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/sales/stats`, {
+      // const res = await axios.get(`http://localhost:5000/api/sales/stats`, {
+      const res = await axios.get(`${API_BASE_URL}/api/sales/stats`, {
         params: { branch, month, year }
       });
       setTopConsumed(res.data.topConsumed || []);
