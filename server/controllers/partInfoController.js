@@ -122,14 +122,14 @@ const calculateMovementData = async (branch, month, year) => {
 let rawPurchase = ohQty - openingStock + consumption; // raw calculation
 let purchase = Math.max(0, rawPurchase); // clamp to zero
 
-console.log(
-  `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
-  `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
-);
+// console.log(
+//   `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
+//   `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
+// );
 
-if (rawPurchase < 0) {
-  console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
-}
+// if (rawPurchase < 0) {
+//   console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
+// }
 
 
     return {
