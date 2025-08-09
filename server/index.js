@@ -3,6 +3,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 // require('dotenv').config();
+const compression = require('compression');
+require("./keepAlive.js");
 
 const partInfoRoutes = require('./routes/partinfo');
 const salesRoutes = require('./routes/sales');
@@ -17,6 +19,7 @@ dotenv.config();
 // Middleware
 app.use(cors({ origin: '*'}));    
 app.use(express.json());
+app.use(compression());
 
 // Routes
 app.use('/api/parts', partInfoRoutes);
@@ -24,6 +27,7 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/auth', authRoutes);
 
 
+app.get("/health", (req, res) => res.send("OK"));
 
 // MongoDB connection
 // mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/myparts-assistant', {

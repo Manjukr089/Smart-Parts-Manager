@@ -4,10 +4,10 @@ client/node_modules/
 server/node_modules/cls
 npm-debug.log
 yarn-error.log
-
+Reports/
 # Build output
 client/build/
 dist/
-
+partsinfo.csv/
 # Environment files
 .env

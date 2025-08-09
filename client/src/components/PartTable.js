@@ -143,8 +143,8 @@ function PartTable({ parts, lowStockThreshold = 3, isLoggedIn }) {
     location: 'Primary Location',
     openingStock: 'Opening Stock',
     purchase: 'Purchase',
-    consumption: 'Consumption',
-    ohQty: 'Closing Stock (O/H QTY)',
+    consumption: 'Sale',
+    ohQty: 'O/H QTY',
     price: 'Price',
     total: 'Total'
   };

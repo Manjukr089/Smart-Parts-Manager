@@ -31,6 +31,43 @@ function UploadForm() {
     }
   }, []);
 
+
+// 📂 Part file change handler — restrict to .xls and .xlsx
+const handlePartFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const allowedExtensions = ['.xls', '.xlsx'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+
+  // ❌ If not an allowed extension, show error and reset input
+  if (!allowedExtensions.includes(ext)) {
+    alert('❌ Only .xls or .xlsx files are allowed for Part Info!');
+    e.target.value = ''; // Reset file picker
+    return;
+  }
+
+  setPartFile(file); // ✅ Store file in state
+};
+
+// 📂 Sales file change handler — restrict to .xls and .xlsx
+const handleSalesFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const allowedExtensions = ['.xls', '.xlsx'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+
+  if (!allowedExtensions.includes(ext)) {
+    alert('❌ Only .xls or .xlsx files are allowed for Sales Report!');
+    e.target.value = '';
+    return;
+  }
+
+  setSalesFile(file);
+};
+
+
   const handleUpload = async (e) => {
     e.preventDefault();
 
@@ -156,12 +193,17 @@ const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
         <div style={fileBox}>
           <label style={labelStyle}>📦 Upload Part Info (.csv/.xls/.xlsx):</label>
-          <input type='file' accept='.xls,.xlsx,.csv' onChange={(e) => setPartFile(e.target.files[0])} />
+          {/* <input type='file' accept='.xls,.xlsx,.csv' onChange={(e) => setPartFile(e.target.files[0])} /> */}
+       <input type='file' accept='.xls,.xlsx' onChange={handlePartFileChange} />
+
+
         </div>
 
         <div style={fileBox}>
           <label style={labelStyle}>📊 Upload Sales Report (.csv/.xls/.xlsx):</label>
-          <input type='file' accept='.xls,.xlsx,.csv' onChange={(e) => setSalesFile(e.target.files[0])} />
+          {/* <input type='file' accept='.xls,.xlsx,.csv' onChange={(e) => setSalesFile(e.target.files[0])} /> */}
+            <input type='file' accept='.xls,.xlsx' onChange={handleSalesFileChange} />
+
         </div>
 
         <button type='submit' style={buttonStyle}>🚀 Upload</button>

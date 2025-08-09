@@ -115,7 +115,22 @@ const calculateMovementData = async (branch, month, year) => {
   const enrichedParts = parts.map(part => {
     const openingStock = openingMap[part.partNo] || 0;
     const consumption = consumptionMap[part.partNo] || 0;
-    const purchase = part.ohQty - openingStock + consumption;
+    // const purchase = part.ohQty - openingStock + consumption;
+
+  const ohQty = part.ohQty || 0;
+
+let rawPurchase = ohQty - openingStock + consumption; // raw calculation
+let purchase = Math.max(0, rawPurchase); // clamp to zero
+
+// console.log(
+//   `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
+//   `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
+// );
+
+// if (rawPurchase < 0) {
+//   console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
+// }
+
 
     return {
       ...part.toObject(),
