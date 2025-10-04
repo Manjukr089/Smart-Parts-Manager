@@ -124,15 +124,23 @@ const uploadSalesData = async (req, res) => {
       partNo: row['Part No.']?.trim(),
       description: row['Part Desc.']?.trim(),
       quantity: parseInt(row['Qty.']) || 0,
-      // date: row['Sale Date']?.trim() || row[' Sale Date']?.trim(),
-// date: row['Sale Date'] instanceof Date ? row['Sale Date'].toISOString() : row['Sale Date']?.trim(),
-date: parseDate(row['Sale Date']),
+      date: parseDate(row['Sale Date']),
 
       branch,
       month: parseInt(month),
       year: parseInt(year),
       period
-    })).filter(r => r.partNo);
+    })).filter(r => r.partNo)
+
+    
+    .filter(r => {
+    // Skip negative quantities (returns)
+    if (r.quantity < 0) {
+      console.log(`Skipped negative qty for part ${r.partNo}: ${r.quantity}`);
+      return false;
+    }
+    return true;
+  });
 
     // ✅ Skip records without valid date
     const invalidDates = sales.filter(r => {

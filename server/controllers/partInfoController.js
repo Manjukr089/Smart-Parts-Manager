@@ -59,7 +59,7 @@ const uploadPartInfo = async (req, res) => {
       ohQty: Number(row['O/H Qty']) || 0,
       price: Number(row['Price']) || 0,
       total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
-      
+
     })).filter(p => p.partNo); // ❗ Only insert rows with partNo
 
     await PartInfo.deleteMany({ branch, month, year });
@@ -78,8 +78,8 @@ const uploadPartInfo = async (req, res) => {
   } catch (err) {
     if (process.env.DEBUG === 'true') {
 
-    console.error('❌ Part info upload failed:', err);
-    res.status(500).json({ error: 'Error saving part data', details: err.message });
+      console.error('❌ Part info upload failed:', err);
+      res.status(500).json({ error: 'Error saving part data', details: err.message });
     }
   }
 };
@@ -97,12 +97,36 @@ const calculateMovementData = async (branch, month, year) => {
   const totalParts = parts.length;
   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
 
-  const sales = await SalesData.find({ branch, month, year });
-  const consumptionMap = {};
-  sales.forEach(s => {
+  //previously worked code
+  // const sales = await SalesData.find({ branch, month, year });
+  // const consumptionMap = {};
+
+  // sales.forEach(s => {
+  //   const qty = consumptionMap[s.partNo] || 0;
+  //   consumptionMap[s.partNo] = qty + s.quantity;
+  // });
+
+
+
+  // sales.forEach(s => {
+  //   // Only count positive quantities (skip returns/negative qty)
+  //   if (s.quantity > 0) {
+  //     const qty = consumptionMap[s.partNo] || 0;
+  //     consumptionMap[s.partNo] = qty + s.quantity;
+  //   }
+  // });
+
+
+
+sales.forEach(s => {
+  if (s.quantity > 0) {
     const qty = consumptionMap[s.partNo] || 0;
     consumptionMap[s.partNo] = qty + s.quantity;
-  });
+  } else if (s.quantity < 0) {
+    // Log negative (return) values
+    console.log(`Skipped return part: ${s.partNo}, Qty: ${s.quantity}`);
+  }
+});
 
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
@@ -117,19 +141,19 @@ const calculateMovementData = async (branch, month, year) => {
     const consumption = consumptionMap[part.partNo] || 0;
     // const purchase = part.ohQty - openingStock + consumption;
 
-  const ohQty = part.ohQty || 0;
+    const ohQty = part.ohQty || 0;
 
-let rawPurchase = ohQty - openingStock + consumption; // raw calculation
-let purchase = Math.max(0, rawPurchase); // clamp to zero
+    let rawPurchase = ohQty - openingStock + consumption; // raw calculation
+    let purchase = Math.max(0, rawPurchase); // clamp to zero
 
-// console.log(
-//   `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
-//   `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
-// );
+    // console.log(
+    //   `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
+    //   `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
+    // );
 
-// if (rawPurchase < 0) {
-//   console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
-// }
+    // if (rawPurchase < 0) {
+    //   console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
+    // }
 
 
     return {
@@ -156,7 +180,7 @@ const getPartInfo = async (req, res) => {
   } catch (err) {
     if (process.env.DEBUG === 'true') {
 
-    res.status(500).json({ error: 'Failed to fetch parts info', details: err.message });
+      res.status(500).json({ error: 'Failed to fetch parts info', details: err.message });
     }
   }
 };
@@ -174,7 +198,7 @@ const getPartMovement = async (req, res) => {
   } catch (err) {
     if (process.env.DEBUG === 'true') {
 
-    res.status(500).json({ error: 'Failed to fetch part movement', details: err.message });
+      res.status(500).json({ error: 'Failed to fetch part movement', details: err.message });
     }
   }
 };
@@ -186,7 +210,7 @@ const getUploadHistory = async (req, res) => {
   } catch (err) {
     if (process.env.DEBUG === 'true') {
 
-    res.status(500).json({ error: 'Failed to fetch upload logs' });
+      res.status(500).json({ error: 'Failed to fetch upload logs' });
     }
   }
 };
