@@ -98,8 +98,8 @@ const calculateMovementData = async (branch, month, year) => {
   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
 
   //previously worked code
-  // const sales = await SalesData.find({ branch, month, year });
-  // const consumptionMap = {};
+  const sales = await SalesData.find({ branch, month, year });
+  const consumptionMap = {};
 
   // sales.forEach(s => {
   //   const qty = consumptionMap[s.partNo] || 0;
@@ -107,25 +107,19 @@ const calculateMovementData = async (branch, month, year) => {
   // });
 
 
-
   // sales.forEach(s => {
-  //   // Only count positive quantities (skip returns/negative qty)
+  //   const qty = consumptionMap[s.partNo] || 0;
   //   if (s.quantity > 0) {
-  //     const qty = consumptionMap[s.partNo] || 0;
   //     consumptionMap[s.partNo] = qty + s.quantity;
   //   }
   // });
 
-
-
+// 🟢 NEW: Only consider positive sales for consumption
 sales.forEach(s => {
-  if (s.quantity > 0) {
-    const qty = consumptionMap[s.partNo] || 0;
-    consumptionMap[s.partNo] = qty + s.quantity;
-  } else if (s.quantity < 0) {
-    // Log negative (return) values
-    console.log(`Skipped return part: ${s.partNo}, Qty: ${s.quantity}`);
-  }
+  const qty = consumptionMap[s.partNo] || 0;
+  // Skip negative or zero sale quantities
+  const saleQty = s.quantity > 0 ? s.quantity : 0;
+  consumptionMap[s.partNo] = qty + saleQty;
 });
 
   const prevMonth = month === 1 ? 12 : month - 1;

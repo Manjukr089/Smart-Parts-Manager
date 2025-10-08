@@ -139,6 +139,10 @@ const uploadSalesData = async (req, res) => {
       console.log(`Skipped negative qty for part ${r.partNo}: ${r.quantity}`);
       return false;
     }
+    if (isNaN(r.quantity)) {
+      console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
+      return false;
+    }
     return true;
   });
 

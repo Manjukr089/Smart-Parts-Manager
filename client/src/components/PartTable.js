@@ -175,6 +175,8 @@ function PartTable({ parts, lowStockThreshold = 3, isLoggedIn }) {
       columns.forEach(col => {
         if (col === 'price') row[columnLabels[col]] = part[col] ? part[col].toFixed(2) : '0.00';
         else if (col === 'total') row[columnLabels[col]] = (part.total || (part.ohQty * part.price || 0)).toFixed(2);
+                // 🟢 NEW: Skip negative consumption (sale) values
+        else if (col === 'consumption') row[columnLabels[col]] = Math.max(0, part[col] || 0);
         else row[columnLabels[col]] = part[col] ?? '';
       });
       return row;
@@ -240,8 +242,21 @@ function PartTable({ parts, lowStockThreshold = 3, isLoggedIn }) {
               return (
                 <tr key={index} style={{ background: isLow ? '#ffe6e6' : '#fff' }}>
                   {columns.map(col => (
-                    <td key={col} style={tdStyle}>
-                      {col === 'price'
+
+                    //previously worked code
+                    // <td key={col} style={tdStyle}>
+                    //   {col === 'price'
+                    //     ? `₹ ${price.toFixed(2)}`
+                    //     : col === 'total'
+                    //     ? `₹ ${total.toFixed(2)}`
+                    //     : part[col] ?? '-'}
+                    // </td>
+                    
+                     <td key={col} style={tdStyle}>
+                      {/* 🟢 NEW: Display consumption as 0 if negative */}
+                      {col === 'consumption'
+                        ? Math.max(0, part[col] || 0)
+                        : col === 'price'
                         ? `₹ ${price.toFixed(2)}`
                         : col === 'total'
                         ? `₹ ${total.toFixed(2)}`
