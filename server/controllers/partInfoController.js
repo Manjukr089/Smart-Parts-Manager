@@ -10,10 +10,6 @@ const SalesData = require('../models/SalesData');
 
 
 
-
-
-
-
 //working code
 const uploadPartInfo = async (req, res) => {
   const { branch, month, year } = req.body;
@@ -101,26 +97,13 @@ const calculateMovementData = async (branch, month, year) => {
   const sales = await SalesData.find({ branch, month, year });
   const consumptionMap = {};
 
-  // sales.forEach(s => {
-  //   const qty = consumptionMap[s.partNo] || 0;
-  //   consumptionMap[s.partNo] = qty + s.quantity;
-  // });
+  sales.forEach(s => {
+    const qty = consumptionMap[s.partNo] || 0;
+    consumptionMap[s.partNo] = qty + s.quantity;
+  });
 
 
-  // sales.forEach(s => {
-  //   const qty = consumptionMap[s.partNo] || 0;
-  //   if (s.quantity > 0) {
-  //     consumptionMap[s.partNo] = qty + s.quantity;
-  //   }
-  // });
 
-// 🟢 NEW: Only consider positive sales for consumption
-sales.forEach(s => {
-  const qty = consumptionMap[s.partNo] || 0;
-  // Skip negative or zero sale quantities
-  const saleQty = s.quantity > 0 ? s.quantity : 0;
-  consumptionMap[s.partNo] = qty + saleQty;
-});
 
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
@@ -140,15 +123,7 @@ sales.forEach(s => {
     let rawPurchase = ohQty - openingStock + consumption; // raw calculation
     let purchase = Math.max(0, rawPurchase); // clamp to zero
 
-    // console.log(
-    //   `Part: ${part.partNo}, Opening: ${openingStock}, OH: ${ohQty}, ` +
-    //   `Consumption: ${consumption}, Raw Purchase: ${rawPurchase}, Final Purchase: ${purchase}`
-    // );
-
-    // if (rawPurchase < 0) {
-    //   console.warn(`Negative raw purchase detected for PartNo: ${part.partNo}`);
-    // }
-
+    
 
     return {
       ...part.toObject(),
