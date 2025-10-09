@@ -87,55 +87,116 @@ const uploadPartInfo = async (req, res) => {
 
 
 
+//previously worked code
+// const calculateMovementData = async (branch, month, year) => {
+//   const parts = await PartInfo.find({ branch, month, year });
+//   const totalParts = parts.length;
+//   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
+
+//   //previously worked code
+//   const sales = await SalesData.find({ branch, month, year });
+//   const consumptionMap = {};
+
+//   sales.forEach(s => {
+//     const qty = consumptionMap[s.partNo] || 0;
+//     consumptionMap[s.partNo] = qty + s.quantity;
+//   });
+
+
+
+
+//   const prevMonth = month === 1 ? 12 : month - 1;
+//   const prevYear = month === 1 ? year - 1 : year;
+//   const prevParts = await PartInfo.find({ branch, month: prevMonth, year: prevYear });
+//   const openingMap = {};
+//   prevParts.forEach(p => {
+//     openingMap[p.partNo] = p.ohQty;
+//   });
+
+//   const enrichedParts = parts.map(part => {
+//     const openingStock = openingMap[part.partNo] || 0;
+//     const consumption = consumptionMap[part.partNo] || 0;
+//     // const purchase = part.ohQty - openingStock + consumption;
+
+//     const ohQty = part.ohQty || 0;
+
+//     let rawPurchase = ohQty - openingStock + consumption; // raw calculation
+//     let purchase = Math.max(0, rawPurchase); // clamp to zero
+
+
+
+//     return {
+//       ...part.toObject(),
+//       openingStock,
+//       purchase,
+//       consumption,
+//       closingStock: part.ohQty
+//     };
+//   });
+
+//   return { parts: enrichedParts, totalParts, totalValue };
+// };
+
 
 const calculateMovementData = async (branch, month, year) => {
   const parts = await PartInfo.find({ branch, month, year });
   const totalParts = parts.length;
   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
 
-  //previously worked code
+  // Fetch all sales (positive + negative)
   const sales = await SalesData.find({ branch, month, year });
-  const consumptionMap = {};
+
+  const consumptionMap = {}; // positive sales only
+  const netSalesMap = {};    // includes returns (negatives)
 
   sales.forEach(s => {
-    const qty = consumptionMap[s.partNo] || 0;
-    consumptionMap[s.partNo] = qty + s.quantity;
+    const partNo = s.partNo;
+    const qty = Number(s.quantity) || 0;
+
+    // total (positive + negative)
+    netSalesMap[partNo] = (netSalesMap[partNo] || 0) + qty;
+
+    // only positive qty as consumption
+    if (qty > 0) {
+      consumptionMap[partNo] = (consumptionMap[partNo] || 0) + qty;
+    }
   });
 
-
-
-
+  // Get previous month's O/H stock
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const prevParts = await PartInfo.find({ branch, month: prevMonth, year: prevYear });
   const openingMap = {};
   prevParts.forEach(p => {
-    openingMap[p.partNo] = p.ohQty;
+    openingMap[p.partNo] = Number(p.ohQty) || 0;
   });
 
+  // Compute final movement
   const enrichedParts = parts.map(part => {
     const openingStock = openingMap[part.partNo] || 0;
     const consumption = consumptionMap[part.partNo] || 0;
-    // const purchase = part.ohQty - openingStock + consumption;
+    const netSales = netSalesMap[part.partNo] || 0;
+    const ohQty = Number(part.ohQty) || 0;
 
-    const ohQty = part.ohQty || 0;
-
-    let rawPurchase = ohQty - openingStock + consumption; // raw calculation
-    let purchase = Math.max(0, rawPurchase); // clamp to zero
-
-    
+    // Purchase calculation now includes returns (negative qty)
+    const rawPurchase = ohQty - openingStock + netSales;
+    const purchase = Math.max(0, Math.round(rawPurchase));
 
     return {
       ...part.toObject(),
       openingStock,
+      consumption, // only positive sales
+      returns: netSales < 0 ? Math.abs(netSales) : 0,
+      netSales,
       purchase,
-      consumption,
-      closingStock: part.ohQty
+      closingStock: ohQty
     };
   });
 
   return { parts: enrichedParts, totalParts, totalValue };
 };
+
+
 
 const getPartInfo = async (req, res) => {
   try {

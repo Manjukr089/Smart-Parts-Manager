@@ -133,18 +133,29 @@ const uploadSalesData = async (req, res) => {
     })).filter(r => r.partNo)
 
     
-    .filter(r => {
-    // Skip negative quantities (returns)
-    if (r.quantity < 0) {
-      console.log(`Skipped negative qty for part ${r.partNo}: ${r.quantity}`);
-      return false;
-    }
-    if (isNaN(r.quantity)) {
-      console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
-      return false;
-    }
-    return true;
-  });
+  //   .filter(r => {
+  //   // Skip negative quantities (returns)
+  //   if (r.quantity < 0) {
+  //     console.log(`Skipped negative qty for part ${r.partNo}: ${r.quantity}`);
+  //     return false;
+  //   }
+  //   if (isNaN(r.quantity)) {
+  //     console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
+  //     return false;
+  //   }
+  //   return true;
+  // });
+
+.filter(r => {
+  // Keep negative quantities (returns) but skip invalid numbers
+  if (isNaN(r.quantity)) {
+    console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
+    return false;
+  }
+  return true;
+});
+
+
 
     // ✅ Skip records without valid date
     const invalidDates = sales.filter(r => {
