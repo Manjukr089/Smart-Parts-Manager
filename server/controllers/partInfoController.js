@@ -56,21 +56,31 @@ const getValue = (row, possibleKeys = []) => {
   return null;
 };
 
-// 🔹 Replace this block:
-const parts = raw.map(row => ({
-  branch,
-  month,
-  year,
-  partNo: row['Part No']?.trim(),
-  description: row['Part Desc']?.trim(),
-  modelCode: row['Model Code']?.trim(),
-  icc: row['ICC']?.trim(),
-  franchise: row['Franchise']?.trim(),
-  location: row['Primary Loc']?.trim() || row['Location']?.trim(),
-  ohQty: Number(row['O/H Qty']) || 0,
-  price: Number(row['Price']) || 0,
-  total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
-})).filter(p => p.partNo);
+const parts = raw.map(row => {
+  const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
+  const description = getValue(row, ['partdesc', 'part desc', 'partdescription', 'part name']);
+  const modelCode = getValue(row, ['modelcode', 'model code']);
+  const icc = getValue(row, ['icc']);
+  const franchise = getValue(row, ['franchise']);
+  const location = getValue(row, ['primaryloc', 'location']);
+  const ohQty = Number(getValue(row, ['ohqty', 'o/h qty', 'stock'])) || 0;
+  const price = Number(getValue(row, ['price'])) || 0;
+
+  return {
+    branch,
+    month: Number(month),
+    year: Number(year),
+    partNo: partNo?.trim(),
+    description: description?.trim(),
+    modelCode: modelCode?.trim(),
+    icc: icc?.trim(),
+    franchise: franchise?.trim(),
+    location: location?.trim(),
+    ohQty,
+    price,
+    total: price * ohQty
+  };
+}).filter(p => p.partNo); // ❗ Only rows with partNo
 
     
     // ✅ Transform and validate rows
