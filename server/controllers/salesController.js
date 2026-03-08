@@ -134,8 +134,8 @@ const uploadSalesData = async (req, res) => {
 
     console.log("📥 Sales upload hit with:", { user, branch, month, year, period });
     console.log("Parsed rows:", raw.length);
-    console.log("First row from Excel:", raw[0]);
     }
+     console.log("First row from Excel:", raw[0]);
       //previously working code before report column name change
     const sales = raw.map(row => ({
       partNo: row['PartNo']?.trim(),
