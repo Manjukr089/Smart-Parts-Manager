@@ -83,9 +83,15 @@ useEffect(() => {
     fetchStats();
   };
 
+  //previously working before sale report change
+  // useEffect(() => {
+  //   handleFetch();
+  // }, []);
+
+  //add this block after sale report change
   useEffect(() => {
-    handleFetch();
-  }, []);
+  handleFetch();
+}, [handleFetch]);
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Segoe UI' }}>
