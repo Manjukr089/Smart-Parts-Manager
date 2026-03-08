@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import PartTable from './PartTable';
 import API_BASE_URL from '../config';  // adjust path if needed
@@ -77,13 +78,18 @@ useEffect(() => {
     }
   };
 
+ //previously working before sale report change
+  // const handleFetch = () => {
+  //   fetchParts();
+  //   fetchStats();
+  // };
 
-  const handleFetch = () => {
-    fetchParts();
-    fetchStats();
-  };
-
-  //previously working before sale report change
+  //add this block after sale report change
+  const handleFetch = useCallback(() => {
+  fetchParts();
+  fetchStats();
+}, [branch, month, year]);
+ 
   // useEffect(() => {
   //   handleFetch();
   // }, []);
