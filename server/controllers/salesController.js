@@ -139,7 +139,7 @@ const uploadSalesData = async (req, res) => {
     const sales = raw.map(row => ({
       partNo: row['PartNo']?.trim(),
       description: row['Part Name']?.trim(),
-      quantity: parseInt(row['Sale Qty.']) || 0,
+      quantity: parseInt(row['Sale Qty']) || 0,
       date: parseDate(row['SaleDate']),
 
       branch,
