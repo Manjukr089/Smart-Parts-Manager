@@ -179,16 +179,16 @@ const sales = raw.map(row => {
   ]);
 
   return {
-    partNo: PartNo?.trim(),
-    description: Part Name?.trim(),
-    quantity: parseInt(Sale Qty) || 0,
-    date: parseDate(SaleDate),
+  partNo: partNo?.trim(),
+  description: description?.trim(),
+  quantity: parseInt(qty) || 0,
+  date: parseDate(saleDateRaw),
 
-    branch,
-    month: parseInt(month),
-    year: parseInt(year),
-    period
-  };
+  branch,
+  month: parseInt(month),
+  year: parseInt(year),
+  period
+};
 
 }).filter(r => r.partNo);
     
