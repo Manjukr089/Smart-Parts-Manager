@@ -1,135 +1,194 @@
-const csv = require('csv-parser');
-const xlsx = require('xlsx'); // ✅ Add for Excel support
-const path = require('path');
+// const csv = require('csv-parser');
+// const xlsx = require('xlsx'); // ✅ Add for Excel support
+// const path = require('path');
 
-const fs = require('fs');
-const PartInfo = require('../models/PartInfo');
-const UploadLog = require('../models/UploadLog');
-const SalesData = require('../models/SalesData');
-
-
+// const fs = require('fs');
+// const PartInfo = require('../models/PartInfo');
+// const UploadLog = require('../models/UploadLog');
+// const SalesData = require('../models/SalesData');
 
 
-//working code
-const uploadPartInfo = async (req, res) => {
-  const { branch, month, year } = req.body;
-  const file = req.file;
-
-  if (!file) return res.status(400).json({ error: 'Part info file is required' });
-
-  try {
-    const ext = path.extname(file.originalname);
-    let raw = [];
-
-    // ✅ Parse CSV or Excel
-    if (ext === '.csv') {
-      const data = fs.readFileSync(file.path, 'utf8');
-      const rows = data.split('\n').map(row => row.split(','));
-      const headers = rows[0].map(h => h.trim());
-
-      for (let i = 1; i < rows.length; i++) {
-        if (rows[i].length < headers.length) continue;
-        const row = {};
-        for (let j = 0; j < headers.length; j++) {
-          row[headers[j]] = rows[i][j]?.trim();
-        }
-        raw.push(row);
-      }
-    } else {
-      const workbook = xlsx.readFile(file.path);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      raw = xlsx.utils.sheet_to_json(sheet);
-    }
-
-    const parts = raw.map(row => ({
-      branch,
-      month,
-      year,
-      partNo: row['Part No']?.trim(),
-      description: row['Part Desc']?.trim(),
-      modelCode: row['Model Code']?.trim(),
-      icc: row['ICC']?.trim(),
-      franchise: row['Franchise']?.trim(),
-      location: row['Primary Loc']?.trim() || row['Location']?.trim(),
-      ohQty: Number(row['O/H Qty']) || 0,
-      price: Number(row['Price']) || 0,
-      total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
-
-    })).filter(p => p.partNo); // ❗ Only insert rows with partNo
-
-    await PartInfo.deleteMany({ branch, month, year });
-    await PartInfo.insertMany(parts);
-
-    await UploadLog.create({
-      branch,
-      month,
-      year,
-      fileType: 'partinfo',
-      partCount: parts.length
-    });
-
-    fs.unlinkSync(file.path);
-    res.json({ message: '✅ Part info uploaded successfully', count: parts.length });
-  } catch (err) {
-    if (process.env.DEBUG === 'true') {
-
-      console.error('❌ Part info upload failed:', err);
-      res.status(500).json({ error: 'Error saving part data', details: err.message });
-    }
-  }
-};
 
 
+// //working code
+// const uploadPartInfo = async (req, res) => {
+//   const { branch, month, year } = req.body;
+//   const file = req.file;
+
+//   if (!file) return res.status(400).json({ error: 'Part info file is required' });
+
+//   try {
+//     const ext = path.extname(file.originalname);
+//     let raw = [];
+
+//     // ✅ Parse CSV or Excel
+//     if (ext === '.csv') {
+//       const data = fs.readFileSync(file.path, 'utf8');
+//       const rows = data.split('\n').map(row => row.split(','));
+//       const headers = rows[0].map(h => h.trim());
+
+//       for (let i = 1; i < rows.length; i++) {
+//         if (rows[i].length < headers.length) continue;
+//         const row = {};
+//         for (let j = 0; j < headers.length; j++) {
+//           row[headers[j]] = rows[i][j]?.trim();
+//         }
+//         raw.push(row);
+//       }
+//     } else {
+//       const workbook = xlsx.readFile(file.path);
+//       const sheet = workbook.Sheets[workbook.SheetNames[0]];
+//       raw = xlsx.utils.sheet_to_json(sheet);
+//     }
+
+//     const parts = raw.map(row => ({
+//       branch,
+//       month,
+//       year,
+//       partNo: row['Part No']?.trim(),
+//       description: row['Part Desc']?.trim(),
+//       modelCode: row['Model Code']?.trim(),
+//       icc: row['ICC']?.trim(),
+//       franchise: row['Franchise']?.trim(),
+//       location: row['Primary Loc']?.trim() || row['Location']?.trim(),
+//       ohQty: Number(row['O/H Qty']) || 0,
+//       price: Number(row['Price']) || 0,
+//       total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
+
+//     })).filter(p => p.partNo); // ❗ Only insert rows with partNo
+
+//     await PartInfo.deleteMany({ branch, month, year });
+//     await PartInfo.insertMany(parts);
+
+//     await UploadLog.create({
+//       branch,
+//       month,
+//       year,
+//       fileType: 'partinfo',
+//       partCount: parts.length
+//     });
+
+//     fs.unlinkSync(file.path);
+//     res.json({ message: '✅ Part info uploaded successfully', count: parts.length });
+//   } catch (err) {
+//     if (process.env.DEBUG === 'true') {
+
+//       console.error('❌ Part info upload failed:', err);
+//       res.status(500).json({ error: 'Error saving part data', details: err.message });
+//     }
+//   }
+// };
 
 
 
 
 
 
-//previously worked code
+
+
+// //previously worked code
+// // const calculateMovementData = async (branch, month, year) => {
+// //   const parts = await PartInfo.find({ branch, month, year });
+// //   const totalParts = parts.length;
+// //   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
+
+// //   //previously worked code
+// //   const sales = await SalesData.find({ branch, month, year });
+// //   const consumptionMap = {};
+
+// //   sales.forEach(s => {
+// //     const qty = consumptionMap[s.partNo] || 0;
+// //     consumptionMap[s.partNo] = qty + s.quantity;
+// //   });
+
+
+
+
+// //   const prevMonth = month === 1 ? 12 : month - 1;
+// //   const prevYear = month === 1 ? year - 1 : year;
+// //   const prevParts = await PartInfo.find({ branch, month: prevMonth, year: prevYear });
+// //   const openingMap = {};
+// //   prevParts.forEach(p => {
+// //     openingMap[p.partNo] = p.ohQty;
+// //   });
+
+// //   const enrichedParts = parts.map(part => {
+// //     const openingStock = openingMap[part.partNo] || 0;
+// //     const consumption = consumptionMap[part.partNo] || 0;
+// //     // const purchase = part.ohQty - openingStock + consumption;
+
+// //     const ohQty = part.ohQty || 0;
+
+// //     let rawPurchase = ohQty - openingStock + consumption; // raw calculation
+// //     let purchase = Math.max(0, rawPurchase); // clamp to zero
+
+
+
+// //     return {
+// //       ...part.toObject(),
+// //       openingStock,
+// //       purchase,
+// //       consumption,
+// //       closingStock: part.ohQty
+// //     };
+// //   });
+
+// //   return { parts: enrichedParts, totalParts, totalValue };
+// // };
+
+
 // const calculateMovementData = async (branch, month, year) => {
 //   const parts = await PartInfo.find({ branch, month, year });
 //   const totalParts = parts.length;
 //   const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
 
-//   //previously worked code
+//   // Fetch all sales (positive + negative)
 //   const sales = await SalesData.find({ branch, month, year });
-//   const consumptionMap = {};
+
+//   const consumptionMap = {}; // positive sales only
+//   const netSalesMap = {};    // includes returns (negatives)
 
 //   sales.forEach(s => {
-//     const qty = consumptionMap[s.partNo] || 0;
-//     consumptionMap[s.partNo] = qty + s.quantity;
+//     const partNo = s.partNo;
+//     const qty = Number(s.quantity) || 0;
+
+//     // total (positive + negative)
+//     netSalesMap[partNo] = (netSalesMap[partNo] || 0) + qty;
+
+//     // only positive qty as consumption
+//     if (qty > 0) {
+//       consumptionMap[partNo] = (consumptionMap[partNo] || 0) + qty;
+//     }
 //   });
 
-
-
-
+//   // Get previous month's O/H stock
 //   const prevMonth = month === 1 ? 12 : month - 1;
 //   const prevYear = month === 1 ? year - 1 : year;
 //   const prevParts = await PartInfo.find({ branch, month: prevMonth, year: prevYear });
 //   const openingMap = {};
 //   prevParts.forEach(p => {
-//     openingMap[p.partNo] = p.ohQty;
+//     openingMap[p.partNo] = Number(p.ohQty) || 0;
 //   });
 
+//   // Compute final movement
 //   const enrichedParts = parts.map(part => {
 //     const openingStock = openingMap[part.partNo] || 0;
 //     const consumption = consumptionMap[part.partNo] || 0;
-//     // const purchase = part.ohQty - openingStock + consumption;
+//     const netSales = netSalesMap[part.partNo] || 0;
+//     const ohQty = Number(part.ohQty) || 0;
 
-//     const ohQty = part.ohQty || 0;
-
-//     let rawPurchase = ohQty - openingStock + consumption; // raw calculation
-//     let purchase = Math.max(0, rawPurchase); // clamp to zero
-
-
+//     // Purchase calculation now includes returns (negative qty)
+//     const rawPurchase = ohQty - openingStock + netSales;
+//     const purchase = Math.max(0, Math.round(rawPurchase));
 
 //     return {
 //       ...part.toObject(),
 //       openingStock,
+//       consumption, // only positive sales
+//       returns: netSales < 0 ? Math.abs(netSales) : 0,
+//       netSales,
 //       purchase,
-//       consumption,
-//       closingStock: part.ohQty
+//       closingStock: ohQty
 //     };
 //   });
 
@@ -137,116 +196,162 @@ const uploadPartInfo = async (req, res) => {
 // };
 
 
-const calculateMovementData = async (branch, month, year) => {
-  const parts = await PartInfo.find({ branch, month, year });
-  const totalParts = parts.length;
-  const totalValue = parts.reduce((sum, part) => sum + (part.total || 0), 0);
 
-  // Fetch all sales (positive + negative)
-  const sales = await SalesData.find({ branch, month, year });
+// const getPartInfo = async (req, res) => {
+//   try {
+//     const { branch, month, year } = req.query;
+//     if (!branch || !month || !year) {
+//       return res.status(400).json({ error: 'Branch, month, and year are required' });
+//     }
 
-  const consumptionMap = {}; // positive sales only
-  const netSalesMap = {};    // includes returns (negatives)
+//     const { parts, totalParts, totalValue } = await calculateMovementData(branch, Number(month), Number(year));
+//     res.json({ parts, totalParts, totalValue });
+//   } catch (err) {
+//     if (process.env.DEBUG === 'true') {
 
-  sales.forEach(s => {
-    const partNo = s.partNo;
-    const qty = Number(s.quantity) || 0;
+//       res.status(500).json({ error: 'Failed to fetch parts info', details: err.message });
+//     }
+//   }
+// };
 
-    // total (positive + negative)
-    netSalesMap[partNo] = (netSalesMap[partNo] || 0) + qty;
+// // ✅ Add this route for /api/parts/movement
+// const getPartMovement = async (req, res) => {
+//   try {
+//     const { branch, month, year } = req.query;
+//     if (!branch || !month || !year) {
+//       return res.status(400).json({ error: 'Branch, month, and year are required' });
+//     }
 
-    // only positive qty as consumption
-    if (qty > 0) {
-      consumptionMap[partNo] = (consumptionMap[partNo] || 0) + qty;
-    }
-  });
+//     const { parts, totalParts, totalValue } = await calculateMovementData(branch, Number(month), Number(year));
+//     res.json({ parts, totalParts, totalValue });
+//   } catch (err) {
+//     if (process.env.DEBUG === 'true') {
 
-  // Get previous month's O/H stock
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
-  const prevParts = await PartInfo.find({ branch, month: prevMonth, year: prevYear });
-  const openingMap = {};
-  prevParts.forEach(p => {
-    openingMap[p.partNo] = Number(p.ohQty) || 0;
-  });
+//       res.status(500).json({ error: 'Failed to fetch part movement', details: err.message });
+//     }
+//   }
+// };
 
-  // Compute final movement
-  const enrichedParts = parts.map(part => {
-    const openingStock = openingMap[part.partNo] || 0;
-    const consumption = consumptionMap[part.partNo] || 0;
-    const netSales = netSalesMap[part.partNo] || 0;
-    const ohQty = Number(part.ohQty) || 0;
+// const getUploadHistory = async (req, res) => {
+//   try {
+//     const logs = await UploadLog.find({ fileType: 'partinfo' }).sort({ uploadedAt: -1 }).limit(20);
+//     res.json(logs);
+//   } catch (err) {
+//     if (process.env.DEBUG === 'true') {
 
-    // Purchase calculation now includes returns (negative qty)
-    const rawPurchase = ohQty - openingStock + netSales;
-    const purchase = Math.max(0, Math.round(rawPurchase));
+//       res.status(500).json({ error: 'Failed to fetch upload logs' });
+//     }
+//   }
+// };
 
-    return {
-      ...part.toObject(),
-      openingStock,
-      consumption, // only positive sales
-      returns: netSales < 0 ? Math.abs(netSales) : 0,
-      netSales,
-      purchase,
-      closingStock: ohQty
-    };
-  });
+// module.exports = {
+//   uploadPartInfo,
+//   getPartInfo,
+//   getUploadHistory,
+//   getPartMovement // ✅ Exported properly
+// };
 
-  return { parts: enrichedParts, totalParts, totalValue };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const fs = require('fs');
+const path = require('path');
+const xlsx = require('xlsx');
+const PartInfo = require('../models/PartInfo');
+const UploadLog = require('../models/UploadLog');
+
+// 🔹 Normalize column names
+const normalizeKey = (key = "") =>
+  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+
+// 🔹 Get value from row dynamically
+const getValue = (row, possibleKeys = []) => {
+  const normalizedKeys = possibleKeys.map(normalizeKey);
+  for (const k of Object.keys(row)) {
+    if (normalizedKeys.includes(normalizeKey(k))) return row[k];
+  }
+  return null;
 };
 
-
-
-const getPartInfo = async (req, res) => {
-  try {
-    const { branch, month, year } = req.query;
-    if (!branch || !month || !year) {
-      return res.status(400).json({ error: 'Branch, month, and year are required' });
+// 🔹 Parse Excel/CSV
+const parseExcelOrCSV = (file) => {
+  const ext = path.extname(file.originalname);
+  if (ext === '.csv') {
+    const data = fs.readFileSync(file.path, 'utf8');
+    const rows = data.split('\n').map(r => r.split(','));
+    const headers = rows[0].map(h => h.trim());
+    const result = [];
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i].length < headers.length) continue;
+      const row = {};
+      for (let j = 0; j < headers.length; j++) row[headers[j]] = rows[i][j]?.trim();
+      result.push(row);
     }
-
-    const { parts, totalParts, totalValue } = await calculateMovementData(branch, Number(month), Number(year));
-    res.json({ parts, totalParts, totalValue });
-  } catch (err) {
-    if (process.env.DEBUG === 'true') {
-
-      res.status(500).json({ error: 'Failed to fetch parts info', details: err.message });
-    }
+    return result;
+  } else {
+    const workbook = xlsx.readFile(file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return xlsx.utils.sheet_to_json(sheet);
   }
 };
 
-// ✅ Add this route for /api/parts/movement
-const getPartMovement = async (req, res) => {
+// 🔹 Upload Part Info
+const uploadPartInfo = async (req, res) => {
+  const { branch, month, year } = req.body;
+  const file = req.file;
+
+  if (!file) return res.status(400).json({ error: 'Part info file is required' });
+
   try {
-    const { branch, month, year } = req.query;
-    if (!branch || !month || !year) {
-      return res.status(400).json({ error: 'Branch, month, and year are required' });
-    }
+    const raw = parseExcelOrCSV(file);
 
-    const { parts, totalParts, totalValue } = await calculateMovementData(branch, Number(month), Number(year));
-    res.json({ parts, totalParts, totalValue });
+    const parts = raw.map(row => {
+      const partNo = getValue(row, ["partno","part no","partnumber"]);
+      const description = getValue(row, ["partdesc","part desc","part description","part name"]);
+      const modelCode = getValue(row, ["modelcode","model code"]);
+      const icc = getValue(row, ["icc"]);
+      const franchise = getValue(row, ["franchise"]);
+      const location = getValue(row, ["primaryloc","location"]);
+      const ohQty = Number(getValue(row, ["ohqty","o/h qty","stock"])) || 0;
+      const price = Number(getValue(row, ["price"])) || 0;
+
+      return { branch, month: Number(month), year: Number(year),
+               partNo: partNo?.trim(), description: description?.trim(),
+               modelCode: modelCode?.trim(), icc: icc?.trim(),
+               franchise: franchise?.trim(), location: location?.trim(),
+               ohQty, price, total: price * ohQty };
+    }).filter(p => p.partNo);
+
+    await PartInfo.deleteMany({ branch, month, year });
+    await PartInfo.insertMany(parts);
+
+    await UploadLog.create({ branch, month, year, fileType: 'partinfo', partCount: parts.length });
+
+    fs.unlinkSync(file.path);
+    res.json({ message: '✅ Part info uploaded successfully', count: parts.length });
   } catch (err) {
-    if (process.env.DEBUG === 'true') {
-
-      res.status(500).json({ error: 'Failed to fetch part movement', details: err.message });
-    }
+    console.error('❌ Part info upload failed:', err);
+    res.status(500).json({ error: 'Error saving part data', details: err.message });
   }
 };
 
-const getUploadHistory = async (req, res) => {
-  try {
-    const logs = await UploadLog.find({ fileType: 'partinfo' }).sort({ uploadedAt: -1 }).limit(20);
-    res.json(logs);
-  } catch (err) {
-    if (process.env.DEBUG === 'true') {
-
-      res.status(500).json({ error: 'Failed to fetch upload logs' });
-    }
-  }
-};
-
-module.exports = {
-  uploadPartInfo,
-  getPartInfo,
-  getUploadHistory,
-  getPartMovement // ✅ Exported properly
-};
+module.exports = { uploadPartInfo };
