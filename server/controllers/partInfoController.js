@@ -41,22 +41,56 @@ const uploadPartInfo = async (req, res) => {
       raw = xlsx.utils.sheet_to_json(sheet);
     }
 
-    // ✅ Transform and validate rows
-    const parts = raw.map(row => ({
-      branch,
-      month,
-      year,
-      partNo: row['Part No']?.trim(),
-      description: row['Part Desc']?.trim(),
-      modelCode: row['Model Code']?.trim(),
-      icc: row['ICC']?.trim(),
-      franchise: row['Franchise']?.trim(),
-      location: row['Primary Loc']?.trim() || row['Location']?.trim(),
-      ohQty: Number(row['O/H Qty']) || 0,
-      price: Number(row['Price']) || 0,
-      total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
 
-    })).filter(p => p.partNo); // ❗ Only insert rows with partNo
+//after report change
+
+    // 🔹 Normalize column names (same as sales upload)
+const normalizeKey = (key = "") =>
+  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+
+// 🔹 Helper to get value from row dynamically
+const getValue = (row, possibleKeys = []) => {
+  for (const k of Object.keys(row)) {
+    if (possibleKeys.includes(normalizeKey(k))) return row[k];
+  }
+  return null;
+};
+
+// 🔹 Replace this block:
+const parts = raw.map(row => ({
+  branch,
+  month,
+  year,
+  partNo: row['Part No']?.trim(),
+  description: row['Part Desc']?.trim(),
+  modelCode: row['Model Code']?.trim(),
+  icc: row['ICC']?.trim(),
+  franchise: row['Franchise']?.trim(),
+  location: row['Primary Loc']?.trim() || row['Location']?.trim(),
+  ohQty: Number(row['O/H Qty']) || 0,
+  price: Number(row['Price']) || 0,
+  total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
+})).filter(p => p.partNo);
+
+    
+    // ✅ Transform and validate rows
+
+    //previously worked before report change  
+    // const parts = raw.map(row => ({
+    //   branch,
+    //   month,
+    //   year,
+    //   partNo: row['Part No']?.trim(),
+    //   description: row['Part Desc']?.trim(),
+    //   modelCode: row['Model Code']?.trim(),
+    //   icc: row['ICC']?.trim(),
+    //   franchise: row['Franchise']?.trim(),
+    //   location: row['Primary Loc']?.trim() || row['Location']?.trim(),
+    //   ohQty: Number(row['O/H Qty']) || 0,
+    //   price: Number(row['Price']) || 0,
+    //   total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
+
+    // })).filter(p => p.partNo); // ❗ Only insert rows with partNo
 
     await PartInfo.deleteMany({ branch, month, year });
     await PartInfo.insertMany(parts);
