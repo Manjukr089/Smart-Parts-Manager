@@ -266,33 +266,34 @@
 
 
 
-
+// server/controllers/salesController.js
 const fs = require('fs');
 const path = require('path');
-const xlsx = require('xlsx');
 const SalesData = require('../models/SalesData');
 const UploadLog = require('../models/UploadLog');
 const parseExcelOrCSV = require('../utils/parseExcelOrCSV');
 
-// 🔹 Normalize column names
+// 🔹 Normalize column names (remove spaces, dots, lowercase)
 const normalizeKey = (key = "") =>
   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
-// 🔹 Get value from row dynamically
+// 🔹 Get value from row using possible keys
 const getValue = (row, possibleKeys = []) => {
-  const normalizedKeys = possibleKeys.map(normalizeKey);
+  const normalizedKeys = possibleKeys.map(k => normalizeKey(k));
   for (const k of Object.keys(row)) {
-    if (normalizedKeys.includes(normalizeKey(k))) return row[k];
+    if (normalizedKeys.includes(normalizeKey(k))) {
+      return row[k];
+    }
   }
   return null;
 };
 
-// 🔹 Parse dates flexibly (dd/mm/yyyy or dd-mm-yyyy)
+// 🔹 Parse dates in dd/mm/yyyy or dd-mm-yyyy format
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
   if (dateStr instanceof Date) return dateStr;
 
-  const parts = dateStr.toString().split(/[\/\-]/).map(Number);
+  const parts = dateStr.split(/[\/\-]/).map(Number);
   if (parts.length !== 3) return null;
 
   const [day, month, year] = parts;
@@ -301,7 +302,7 @@ const parseDate = (dateStr) => {
   return new Date(year, month - 1, day); // JS months are 0-indexed
 };
 
-// 🔹 Validate date range within period
+// 🔹 Validate date within selected period
 const validateDateRange = (date, month, year, period) => {
   if (!(date instanceof Date)) return false;
 
@@ -317,44 +318,55 @@ const validateDateRange = (date, month, year, period) => {
 
 // 🔹 Upload Sales Data
 const uploadSalesData = async (req, res) => {
-  const { branch, month, year, period } = req.body;
-  const file = req.file;
-
-  if (!file || !branch || !month || !year || !period)
-    return res.status(400).json({ error: 'All fields are required' });
-
   try {
-    const user = req.user; // ✅ auth middleware
+    const { branch, month, year, period } = req.body;
+    const file = req.file;
+    const user = req.user;
+
+    if (!file || !branch || !month || !year || !period) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     if (user.branch !== branch && user.role !== 'admin') {
       return res.status(403).json({ error: 'You are not allowed to upload for this branch' });
     }
 
     const raw = await parseExcelOrCSV(file);
-    if (process.env.DEBUG === 'true') {
-      console.log("📥 Parsed rows:", raw.length);
-    }
 
+    // 🔹 Map rows dynamically
     const sales = raw.map(row => {
-      const partNo = getValue(row, ["partno","part no","partnumber"]);
-      const description = getValue(row, ["partname","part name","partdesc","part description"]);
-      const quantity = parseInt(getValue(row, ["saleqty","sale qty","qty","quantity"])) || 0;
-      const saleDateRaw = getValue(row, ["saledate","sale date","saleDate"]);
-      const date = parseDate(saleDateRaw);
+      const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
+      const description = getValue(row, ['partname', 'part name', 'partdesc', 'part description']);
+      const quantity = Number(getValue(row, ['saleqty', 'sale qty', 'qty'])) || 0;
+      const date = parseDate(getValue(row, ['saledate', 'sale date']));
 
-      return { partNo: partNo?.trim(), description: description?.trim(), quantity, date,
-               branch, month: parseInt(month), year: parseInt(year), period };
-    }).filter(r => r.partNo && r.date);
+      return {
+        partNo: partNo?.trim(),
+        description: description?.trim(),
+        quantity,
+        date,
+        branch,
+        month: Number(month),
+        year: Number(year),
+        period
+      };
+    }).filter(r => {
+      // Skip invalid quantity rows
+      if (!r.partNo) return false;
+      if (isNaN(r.quantity)) return false;
+      if (!r.date) return false;
+      if (!validateDateRange(r.date, month, year, period)) return false;
+      return true;
+    });
 
-    // ✅ Validate dates
-    const invalidDates = sales.filter(r => !validateDateRange(r.date, month, year, period));
-    if (invalidDates.length > 0) {
-      return res.status(400).json({ error: 'Some dates are outside the selected period', details: invalidDates });
-    }
-
+    // 🔹 Delete old records for same branch/month/year/period
     await SalesData.deleteMany({ branch, month, year, period });
+
+    // 🔹 Insert new sales data
     await SalesData.insertMany(sales);
 
+    // 🔹 Log upload
     await UploadLog.create({
       branch,
       month,
@@ -366,13 +378,45 @@ const uploadSalesData = async (req, res) => {
       role: user.role
     });
 
+    // 🔹 Delete uploaded file
     fs.unlinkSync(file.path);
-    res.json({ message: '✅ Sales report uploaded successfully', count: sales.length });
 
+    res.json({ message: '✅ Sales report uploaded successfully', count: sales.length });
   } catch (err) {
     console.error('❌ Upload error:', err);
     res.status(500).json({ error: 'Upload failed', details: err.message });
   }
 };
 
-module.exports = { uploadSalesData };
+// 🔹 Get Top Consumed Parts
+const getConsumptionStats = async (req, res) => {
+  try {
+    const { branch, month, year, limit = 10 } = req.query;
+
+    if (!branch || !month || !year) {
+      return res.status(400).json({ error: 'Branch, month, and year are required' });
+    }
+
+    const topConsumed = await SalesData.aggregate([
+      { $match: { branch, month: Number(month), year: Number(year) } },
+      {
+        $group: {
+          _id: { partNo: "$partNo", description: "$description" },
+          totalQuantity: { $sum: "$quantity" }
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: Number(limit) }
+    ]);
+
+    res.json({ topConsumed });
+  } catch (err) {
+    console.error('❌ Failed to fetch top consumed parts:', err);
+    res.status(500).json({ error: "Failed to fetch top consumed parts", details: err.message });
+  }
+};
+
+module.exports = {
+  uploadSalesData,
+  getConsumptionStats
+};
