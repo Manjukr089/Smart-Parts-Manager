@@ -271,78 +271,166 @@
 
 
 
-
-
+// server/controllers/salesController.js
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const PartInfo = require('../models/PartInfo');
-const UploadLog = require('../models/UploadLog');
 const SalesData = require('../models/SalesData');
+const UploadLog = require('../models/UploadLog');
+const parseExcelOrCSV = require('../utils/parseExcelOrCSV');
+const { getUserFromToken } = require('../utils/jwtHelpers');
 
-const uploadPartInfo = async (req, res) => {
-  const { branch, month, year } = req.body;
+// Validate sale date within selected month/year and period
+const validateDateRange = (date, month, year, period) => {
+  if (!(date instanceof Date)) return false;
+
+  const saleDay = date.getDate();
+  const saleMonth = date.getMonth() + 1;
+  const saleYear = date.getFullYear();
+
+  if (saleMonth !== Number(month) || saleYear !== Number(year)) return false;
+
+  const [start, end] = period.split('-').map(Number);
+  return saleDay >= start && saleDay <= end;
+};
+
+// Parse date strings like dd/mm/yyyy or dd-mm-yyyy
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+
+  const [day, month, year] = dateStr.split(/[\/\-]/).map(Number);
+  if (!day || !month || !year) return null;
+
+  return new Date(year, month - 1, day); // JS months are 0-indexed
+};
+
+// 🔹 Normalize column names
+const normalizeKey = (key = "") =>
+  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+
+// 🔹 Get value from row using possible column names
+const getValue = (row, possibleKeys = []) => {
+  for (const k of Object.keys(row)) {
+    const normalized = normalizeKey(k);
+    if (possibleKeys.some(pk => normalizeKey(pk) === normalized)) {
+      return row[k];
+    }
+  }
+  return null;
+};
+
+const uploadSalesData = async (req, res) => {
+  const { branch, month, year, period } = req.body;
   const file = req.file;
 
-  if (!file) return res.status(400).json({ error: 'Part info file is required' });
+  if (!file || !branch || !month || !year || !period) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
 
   try {
-    const ext = path.extname(file.originalname).toLowerCase();
-    let raw = [];
-
-    if (ext === '.csv') {
-      const data = fs.readFileSync(file.path, 'utf8');
-      const rows = data.split('\n').map(r => r.split(','));
-      const headers = rows[0].map(h => h.trim());
-      for (let i = 1; i < rows.length; i++) {
-        if (rows[i].length < headers.length) continue;
-        const row = {};
-        for (let j = 0; j < headers.length; j++) {
-          row[headers[j]] = rows[i][j]?.trim();
-        }
-        raw.push(row);
-      }
-    } else {
-      const workbook = xlsx.readFile(file.path);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      raw = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+    const user = req.user; // set by auth middleware
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.branch !== branch && user.role !== 'admin') {
+      return res.status(403).json({ error: 'You are not allowed to upload for this branch' });
     }
 
-    // ✅ Updated column names mapping for new report
-    const parts = raw.map(row => ({
-      branch,
-      month: Number(month),
-      year: Number(year),
-      partNo: (row['PartNo'] || row['Part No'] || row['PartNumber'])?.trim(),
-      description: (row['PartName'] || row['Part Name'] || row['Part Desc'])?.trim(),
-      modelCode: (row['ModelCode'] || row['Model Code'])?.trim(),
-      icc: (row['ICC'])?.trim(),
-      franchise: (row['Franchise'])?.trim(),
-      location: (row['PrimaryLoc'] || row['Location'])?.trim(),
-      ohQty: Number(row['O/H Qty'] || row['Stock'] || 0),
-      price: Number(row['Price'] || row['UnitPrice'] || 0),
-      total: (Number(row['Price'] || row['UnitPrice'] || 0)) * (Number(row['O/H Qty'] || row['Stock'] || 0))
-    })).filter(p => p.partNo); // only rows with partNo
+    const raw = await parseExcelOrCSV(file);
+    if (process.env.DEBUG === 'true') {
+      console.log("📥 Sales upload hit with:", { user, branch, month, year, period });
+      console.log("Parsed rows:", raw.length);
+    }
 
-    await PartInfo.deleteMany({ branch, month, year });
-    await PartInfo.insertMany(parts);
+    // 🔹 Flexible mapping for current report columns
+    const sales = raw.map(row => {
+      const partNo = getValue(row, ["PartNo", "part no", "partnumber"]);
+      const description = getValue(row, ["Part Name", "part name", "partdesc", "part description"]);
+      const quantity = parseInt(getValue(row, ["Sale Qty", "sale qty", "qty"])) || 0;
+      const saleDateRaw = getValue(row, ["SaleDate", "sale date"]);
+      const date = parseDate(saleDateRaw);
+
+      return {
+        partNo: partNo?.trim(),
+        description: description?.trim(),
+        quantity,
+        date,
+        branch,
+        month: parseInt(month),
+        year: parseInt(year),
+        period
+      };
+    })
+    .filter(r => {
+      // keep negative quantities (returns) but skip invalid numbers
+      if (isNaN(r.quantity)) {
+        console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
+        return false;
+      }
+      return true;
+    });
+
+    // ✅ Skip records outside the selected period
+    const invalidDates = sales.filter(r => !r.date || !validateDateRange(r.date, month, year, period));
+    if (invalidDates.length > 0) {
+      if (process.env.DEBUG === 'true') console.log("❌ Invalid date rows:", invalidDates);
+      return res.status(400).json({ error: 'Some dates are outside the selected period' });
+    }
+
+    await SalesData.deleteMany({ branch, month, year, period });
+    await SalesData.insertMany(sales);
 
     await UploadLog.create({
       branch,
       month,
       year,
-      fileType: 'partinfo',
-      partCount: parts.length
+      period,
+      fileType: 'sales',
+      partCount: sales.length,
+      uploadedBy: user.username,
+      role: user.role
     });
 
     fs.unlinkSync(file.path);
-    res.json({ message: '✅ Part info uploaded successfully', count: parts.length });
+    res.json({ message: '✅ Sales report uploaded successfully', count: sales.length });
   } catch (err) {
-    console.error('❌ Part info upload failed:', err);
-    res.status(500).json({ error: 'Error saving part data', details: err.message });
+    if (process.env.DEBUG === 'true') {
+      console.error('❌ Upload error:', err);
+      res.status(500).json({ error: 'Upload failed', details: err.message });
+    }
   }
 };
 
-module.exports = {
-  uploadPartInfo
+// Get Top Consumed Parts
+const getConsumptionStats = async (req, res) => {
+  try {
+    const { branch, month, year, limit = 10 } = req.query;
+
+    if (!branch || !month || !year) {
+      return res.status(400).json({ error: 'Branch, month, and year are required' });
+    }
+
+    const topConsumed = await SalesData.aggregate([
+      {
+        $match: {
+          branch,
+          month: parseInt(month),
+          year: parseInt(year),
+        }
+      },
+      {
+        $group: {
+          _id: { partNo: "$partNo", description: "$description" },
+          totalQuantity: { $sum: "$quantity" }
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: parseInt(limit) }
+    ]);
+
+    res.json({ topConsumed });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch top consumed parts", details: err.message });
+  }
 };
+
+module.exports = { uploadSalesData, getConsumptionStats };
