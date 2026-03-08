@@ -97,6 +97,21 @@ const parseDate = (dateStr) => {
   return new Date(year, month - 1, day); // month - 1 because JS months are 0-indexed
 };
 
+//this block will add after report column names change 
+// 🔹 Normalize column names (remove spaces, dots, lowercase)
+const normalizeKey = (key = "") =>
+  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+
+// 🔹 Get value from row using possible column names
+const getValue = (row, possibleKeys = []) => {
+  for (const k of Object.keys(row)) {
+    const normalized = normalizeKey(k);
+    if (possibleKeys.includes(normalized)) {
+      return row[k];
+    }
+  }
+  return null;
+};
 
 
 const uploadSalesData = async (req, res) => {
@@ -120,18 +135,62 @@ const uploadSalesData = async (req, res) => {
     console.log("📥 Sales upload hit with:", { user, branch, month, year, period });
     console.log("Parsed rows:", raw.length);
     }
-    const sales = raw.map(row => ({
-      partNo: row['Part No.']?.trim(),
-      description: row['Part Desc.']?.trim(),
-      quantity: parseInt(row['Qty.']) || 0,
-      date: parseDate(row['Sale Date']),
+      //previously working code before report column name change
+    // const sales = raw.map(row => ({
+    //   partNo: row['Part No.']?.trim(),
+    //   description: row['Part Desc.']?.trim(),
+    //   quantity: parseInt(row['Qty.']) || 0,
+    //   date: parseDate(row['Sale Date']),
 
-      branch,
-      month: parseInt(month),
-      year: parseInt(year),
-      period
-    })).filter(r => r.partNo)
+    //   branch,
+    //   month: parseInt(month),
+    //   year: parseInt(year),
+    //   period
+    // })).filter(r => r.partNo)
+//this block will add after report column names change 
+      // 🔹 Flexible column detection for Toyota reports
+const sales = raw.map(row => {
 
+  // detect part number
+  const partNo = getValue(row, [
+    "PartNo",
+    "Part No.",
+    "partnumber"
+  ]);
+
+  // detect description
+  const description = getValue(row, [
+    "partdesc",
+    "PartName",
+    "Part Name",
+    "Part Desc."
+  ]);
+
+  // detect quantity
+  const qty = getValue(row, [
+    "Qty.",
+    "Sale Qty"
+  ]);
+
+  // detect sale date
+  const saleDateRaw = getValue(row, [
+    "Sale Date",
+    "SaleDate"
+  ]);
+
+  return {
+    partNo: PartNo?.trim(),
+    description: Part Name?.trim(),
+    quantity: parseInt(Sale Qty) || 0,
+    date: parseDate(SaleDate),
+
+    branch,
+    month: parseInt(month),
+    year: parseInt(year),
+    period
+  };
+
+}).filter(r => r.partNo);
     
   //   .filter(r => {
   //   // Skip negative quantities (returns)
