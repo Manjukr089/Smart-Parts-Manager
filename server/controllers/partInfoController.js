@@ -41,82 +41,21 @@ const uploadPartInfo = async (req, res) => {
       raw = xlsx.utils.sheet_to_json(sheet);
     }
 
+    const parts = raw.map(row => ({
+      branch,
+      month,
+      year,
+      partNo: row['Part No']?.trim(),
+      description: row['Part Desc']?.trim(),
+      modelCode: row['Model Code']?.trim(),
+      icc: row['ICC']?.trim(),
+      franchise: row['Franchise']?.trim(),
+      location: row['Primary Loc']?.trim() || row['Location']?.trim(),
+      ohQty: Number(row['O/H Qty']) || 0,
+      price: Number(row['Price']) || 0,
+      total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
 
-//after report change
-
-// 🔹 Normalize any key
-const normalizeKey = (key = "") =>
-  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
-
-// 🔹 Get value from row dynamically
-const getValue = (row, possibleKeys = []) => {
-  for (const k of Object.keys(row)) {
-    const nk = normalizeKey(k);
-    if (possibleKeys.map(normalizeKey).includes(nk)) {
-      return row[k];
-    }
-  }
-  return null;
-};
-
-// 🔹 Map rows dynamically
-const sales = raw.map(row => ({
-  partNo: getValue(row, ['partno', 'part no', 'partnumber']),
-  description: getValue(row, ['partname', 'part name', 'partdesc']),
-  quantity: parseInt(getValue(row, ['saleqty', 'sale qty', 'qty'])) || 0,
-  date: parseDate(getValue(row, ['saledate', 'sale date'])),
-
-  branch,
-  month: parseInt(month),
-  year: parseInt(year),
-  period
-})).filter(r => r.partNo && r.date);
-
-const parts = raw.map(row => {
-  const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
-  const description = getValue(row, ['partdesc', 'part desc', 'partdescription', 'part name']);
-  const modelCode = getValue(row, ['modelcode', 'model code']);
-  const icc = getValue(row, ['icc']);
-  const franchise = getValue(row, ['franchise']);
-  const location = getValue(row, ['primaryloc', 'location']);
-  const ohQty = Number(getValue(row, ['ohqty', 'o/h qty', 'stock'])) || 0;
-  const price = Number(getValue(row, ['price'])) || 0;
-
-  return {
-    branch,
-    month: Number(month),
-    year: Number(year),
-    partNo: partNo?.trim(),
-    description: description?.trim(),
-    modelCode: modelCode?.trim(),
-    icc: icc?.trim(),
-    franchise: franchise?.trim(),
-    location: location?.trim(),
-    ohQty,
-    price,
-    total: price * ohQty
-  };
-}).filter(p => p.partNo); // ❗ Only rows with partNo
-
-    
-    // ✅ Transform and validate rows
-
-    //previously worked before report change  
-    // const parts = raw.map(row => ({
-    //   branch,
-    //   month,
-    //   year,
-    //   partNo: row['Part No']?.trim(),
-    //   description: row['Part Desc']?.trim(),
-    //   modelCode: row['Model Code']?.trim(),
-    //   icc: row['ICC']?.trim(),
-    //   franchise: row['Franchise']?.trim(),
-    //   location: row['Primary Loc']?.trim() || row['Location']?.trim(),
-    //   ohQty: Number(row['O/H Qty']) || 0,
-    //   price: Number(row['Price']) || 0,
-    //   total: (Number(row['Price']) || 0) * (Number(row['O/H Qty']) || 0)
-
-    // })).filter(p => p.partNo); // ❗ Only insert rows with partNo
+    })).filter(p => p.partNo); // ❗ Only insert rows with partNo
 
     await PartInfo.deleteMany({ branch, month, year });
     await PartInfo.insertMany(parts);
