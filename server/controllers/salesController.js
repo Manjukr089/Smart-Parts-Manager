@@ -98,18 +98,18 @@ const parseDate = (dateStr) => {
 };
 
 //this block will add after report column names change 
-// 🔹 Normalize column names (remove spaces, dots, lowercase)
-// const normalizeKey = (key = "") =>
-//   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+🔹 Normalize column names (remove spaces, dots, lowercase)
+const normalizeKey = (key = "") =>
+  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
-// // 🔹 Get value from row using possible column names
-// const getValue = (row, possibleKeys = []) => {
-//   for (const k of Object.keys(row)) {
-//     const normalized = normalizeKey(k);
-//     if (possibleKeys.includes(normalized)) {
-//       return row[k];
-//     }
-//   }
+// 🔹 Get value from row using possible column names
+const getValue = (row, possibleKeys = []) => {
+  for (const k of Object.keys(row)) {
+    const normalized = normalizeKey(k);
+    if (possibleKeys.includes(normalized)) {
+      return row[k];
+    }
+  }
 //   return null;
 // };
 
@@ -134,6 +134,7 @@ const uploadSalesData = async (req, res) => {
 
     console.log("📥 Sales upload hit with:", { user, branch, month, year, period });
     console.log("Parsed rows:", raw.length);
+    console.log("First row from Excel:", raw[0]);
     }
       //previously working code before report column name change
     const sales = raw.map(row => ({
