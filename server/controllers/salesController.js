@@ -98,7 +98,7 @@ const parseDate = (dateStr) => {
 };
 
 //this block will add after report column names change 
-🔹 Normalize column names (remove spaces, dots, lowercase)
+// 🔹 Normalize column names (remove spaces, dots, lowercase)
 const normalizeKey = (key = "") =>
   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
