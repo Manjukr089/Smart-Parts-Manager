@@ -267,9 +267,6 @@
 
 
 
-
-
-// server/controllers/salesController.js
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
@@ -277,33 +274,34 @@ const SalesData = require('../models/SalesData');
 const UploadLog = require('../models/UploadLog');
 const parseExcelOrCSV = require('../utils/parseExcelOrCSV');
 
-// 🔹 Normalize column names (remove spaces, dots, lowercase)
+// 🔹 Normalize column names
 const normalizeKey = (key = "") =>
   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
-// 🔹 Get value from row using possible column names
+// 🔹 Get value from row dynamically
 const getValue = (row, possibleKeys = []) => {
+  const normalizedKeys = possibleKeys.map(normalizeKey);
   for (const k of Object.keys(row)) {
-    const nk = normalizeKey(k);
-    if (possibleKeys.map(normalizeKey).includes(nk)) {
-      return row[k];
-    }
+    if (normalizedKeys.includes(normalizeKey(k))) return row[k];
   }
   return null;
 };
 
-// 🔹 Parse date (supports dd/mm/yyyy and dd-mm-yyyy)
+// 🔹 Parse dates flexibly (dd/mm/yyyy or dd-mm-yyyy)
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
   if (dateStr instanceof Date) return dateStr;
 
-  const [day, month, year] = dateStr.split(/[\/\-]/).map(Number);
+  const parts = dateStr.toString().split(/[\/\-]/).map(Number);
+  if (parts.length !== 3) return null;
+
+  const [day, month, year] = parts;
   if (!day || !month || !year) return null;
 
   return new Date(year, month - 1, day); // JS months are 0-indexed
 };
 
-// 🔹 Validate sale date falls in selected period
+// 🔹 Validate date range within period
 const validateDateRange = (date, month, year, period) => {
   if (!(date instanceof Date)) return false;
 
@@ -317,19 +315,16 @@ const validateDateRange = (date, month, year, period) => {
   return saleDay >= start && saleDay <= end;
 };
 
-// =========================
-// Upload Sales Data
-// =========================
+// 🔹 Upload Sales Data
 const uploadSalesData = async (req, res) => {
   const { branch, month, year, period } = req.body;
   const file = req.file;
 
-  if (!file || !branch || !month || !year || !period) {
+  if (!file || !branch || !month || !year || !period)
     return res.status(400).json({ error: 'All fields are required' });
-  }
 
   try {
-    const user = req.user; // set by auth middleware
+    const user = req.user; // ✅ auth middleware
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     if (user.branch !== branch && user.role !== 'admin') {
       return res.status(403).json({ error: 'You are not allowed to upload for this branch' });
@@ -337,39 +332,24 @@ const uploadSalesData = async (req, res) => {
 
     const raw = await parseExcelOrCSV(file);
     if (process.env.DEBUG === 'true') {
-      console.log("📥 Sales upload hit with:", { user, branch, month, year, period });
-      console.log("Parsed rows:", raw.length);
+      console.log("📥 Parsed rows:", raw.length);
     }
 
-    // 🔹 Flexible mapping for current report columns
     const sales = raw.map(row => {
-      const partNo = getValue(row, ["partno", "part no", "partnumber"]);
-      const description = getValue(row, ["partname", "part name", "partdesc", "part description"]);
-      const quantityRaw = getValue(row, ["saleqty", "sale qty", "qty", "quantity"]);
-      const quantity = parseInt(quantityRaw) || 0;
-      const saleDateRaw = getValue(row, ["saledate", "sale date"]);
+      const partNo = getValue(row, ["partno","part no","partnumber"]);
+      const description = getValue(row, ["partname","part name","partdesc","part description"]);
+      const quantity = parseInt(getValue(row, ["saleqty","sale qty","qty","quantity"])) || 0;
+      const saleDateRaw = getValue(row, ["saledate","sale date","saleDate"]);
       const date = parseDate(saleDateRaw);
 
-      return {
-        partNo: partNo?.trim(),
-        description: description?.trim(),
-        quantity,
-        date,
-        branch,
-        month: parseInt(month),
-        year: parseInt(year),
-        period
-      };
-    })
-    .filter(r => r.partNo && !isNaN(r.quantity) && r.date); // skip invalid rows
+      return { partNo: partNo?.trim(), description: description?.trim(), quantity, date,
+               branch, month: parseInt(month), year: parseInt(year), period };
+    }).filter(r => r.partNo && r.date);
 
-    // ✅ Skip records outside selected period
+    // ✅ Validate dates
     const invalidDates = sales.filter(r => !validateDateRange(r.date, month, year, period));
     if (invalidDates.length > 0) {
-      if (process.env.DEBUG === 'true') {
-        console.log("❌ Invalid date rows:", invalidDates);
-      }
-      return res.status(400).json({ error: 'Some sale dates are outside the selected period' });
+      return res.status(400).json({ error: 'Some dates are outside the selected period', details: invalidDates });
     }
 
     await SalesData.deleteMany({ branch, month, year, period });
@@ -390,10 +370,8 @@ const uploadSalesData = async (req, res) => {
     res.json({ message: '✅ Sales report uploaded successfully', count: sales.length });
 
   } catch (err) {
-    if (process.env.DEBUG === 'true') {
-      console.error('❌ Upload error:', err);
-      res.status(500).json({ error: 'Upload failed', details: err.message });
-    }
+    console.error('❌ Upload error:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
   }
 };
 
