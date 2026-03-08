@@ -273,86 +273,57 @@
 
 
 
-
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const csvParser = require('csv-parser');
 const PartInfo = require('../models/PartInfo');
 const UploadLog = require('../models/UploadLog');
+const SalesData = require('../models/SalesData');
 
-// 🔹 Normalize keys to standard form
-const normalizeKey = (key = '') =>
-  key.toString().trim().toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
-
-// 🔹 Get a value dynamically from row using possible keys
-const getValue = (row, possibleKeys = []) => {
-  const normalizedKeys = possibleKeys.map(normalizeKey);
-  for (const k of Object.keys(row)) {
-    if (normalizedKeys.includes(normalizeKey(k))) return row[k];
-  }
-  return null;
-};
-
-// 🔹 Main function
 const uploadPartInfo = async (req, res) => {
   const { branch, month, year } = req.body;
   const file = req.file;
+
   if (!file) return res.status(400).json({ error: 'Part info file is required' });
 
   try {
-    let raw = [];
     const ext = path.extname(file.originalname).toLowerCase();
+    let raw = [];
 
-    // ✅ Parse Excel
-    if (ext === '.xlsx' || ext === '.xls') {
+    if (ext === '.csv') {
+      const data = fs.readFileSync(file.path, 'utf8');
+      const rows = data.split('\n').map(r => r.split(','));
+      const headers = rows[0].map(h => h.trim());
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i].length < headers.length) continue;
+        const row = {};
+        for (let j = 0; j < headers.length; j++) {
+          row[headers[j]] = rows[i][j]?.trim();
+        }
+        raw.push(row);
+      }
+    } else {
       const workbook = xlsx.readFile(file.path);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      raw = xlsx.utils.sheet_to_json(sheet, { defval: '' }); // defval: '' ensures empty cells are ''
-    } else if (ext === '.csv') {
-      // Parse CSV robustly using csv-parser
-      raw = await new Promise((resolve, reject) => {
-        const rows = [];
-        fs.createReadStream(file.path)
-          .pipe(csvParser())
-          .on('data', row => rows.push(row))
-          .on('end', () => resolve(rows))
-          .on('error', err => reject(err));
-      });
-    } else {
-      return res.status(400).json({ error: 'Unsupported file format' });
+      raw = xlsx.utils.sheet_to_json(sheet, { defval: '' });
     }
 
-    // Map raw rows dynamically
-    const parts = raw.map(row => {
-      const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
-      if (!partNo) return null; // skip rows without partNo
+    // ✅ Updated column names mapping for new report
+    const parts = raw.map(row => ({
+      branch,
+      month: Number(month),
+      year: Number(year),
+      partNo: (row['PartNo'] || row['Part No'] || row['PartNumber'])?.trim(),
+      description: (row['PartName'] || row['Part Name'] || row['Part Desc'])?.trim(),
+      modelCode: (row['ModelCode'] || row['Model Code'])?.trim(),
+      icc: (row['ICC'])?.trim(),
+      franchise: (row['Franchise'])?.trim(),
+      location: (row['PrimaryLoc'] || row['Location'])?.trim(),
+      ohQty: Number(row['O/H Qty'] || row['Stock'] || 0),
+      price: Number(row['Price'] || row['UnitPrice'] || 0),
+      total: (Number(row['Price'] || row['UnitPrice'] || 0)) * (Number(row['O/H Qty'] || row['Stock'] || 0))
+    })).filter(p => p.partNo); // only rows with partNo
 
-      const description = getValue(row, ['partdesc', 'part desc', 'partdescription', 'part name']);
-      const modelCode = getValue(row, ['modelcode', 'model code']);
-      const icc = getValue(row, ['icc']);
-      const franchise = getValue(row, ['franchise']);
-      const location = getValue(row, ['primaryloc', 'location']);
-      const ohQty = Number(getValue(row, ['ohqty', 'o/h qty', 'stock'])) || 0;
-      const price = Number(getValue(row, ['price', 'unitprice', 'rate'])) || 0;
-
-      return {
-        branch,
-        month: Number(month),
-        year: Number(year),
-        partNo: partNo?.toString().trim(),
-        description: description?.toString().trim(),
-        modelCode: modelCode?.toString().trim(),
-        icc: icc?.toString().trim(),
-        franchise: franchise?.toString().trim(),
-        location: location?.toString().trim(),
-        ohQty,
-        price,
-        total: price * ohQty
-      };
-    }).filter(Boolean); // remove nulls
-
-    // Save to DB
     await PartInfo.deleteMany({ branch, month, year });
     await PartInfo.insertMany(parts);
 
