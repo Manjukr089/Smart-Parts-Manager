@@ -137,62 +137,48 @@ const uploadSalesData = async (req, res) => {
     }
      console.log("First row from Excel:", raw[0]);
       //previously working code before report column name change
-    const sales = raw.map(row => ({
-      partNo: row['PartNo']?.trim(),
-      description: row['Part Name']?.trim(),
-      quantity: parseInt(row['Sale Qty']) || 0,
-      date: parseDate(row['SaleDate']),
+    // const sales = raw.map(row => ({
+    //   partNo: row['PartNo']?.trim(),
+    //   description: row['Part Name']?.trim(),
+    //   quantity: parseInt(row['Sale Qty']) || 0,
+    //   date: parseDate(row['SaleDate']),
 
-      branch,
-      month: parseInt(month),
-      year: parseInt(year),
-      period
-    })).filter(r => r.partNo)
+    //   branch,
+    //   month: parseInt(month),
+    //   year: parseInt(year),
+    //   period
+    // })).filter(r => r.partNo)
 
 //     //this block will add after report column names change 
-//       // 🔹 Flexible column detection for Toyota reports
-// const sales = raw.map(row => {
 
-//   // detect part number
-//   const partNo = getValue(row, [
-//     "PartNo",
-//     "Part No.",
-//     "partnumber"
-//   ]);
+    // 🔹 Flexible mapping for current report columns
+const sales = raw.map(row => {
+  const partNo = getValue(row, ["partno", "part no", "partnumber"]);
+  const description = getValue(row, ["partname", "part name", "partdesc", "part description"]);
+  const quantity = parseInt(getValue(row, ["saleqty", "sale qty", "qty"])) || 0;
+  const saleDateRaw = getValue(row, ["saledate", "sale date"]);
+  const date = parseDate(saleDateRaw);
 
-//   // detect description
-//   const description = getValue(row, [
-//     "partdesc",
-//     "PartName",
-//     "Part Name",
-//     "Part Desc."
-//   ]);
+  return {
+    partNo: partNo?.trim(),
+    description: description?.trim(),
+    quantity,
+    date,
+    branch,
+    month: parseInt(month),
+    year: parseInt(year),
+    period
+  };
+})
+// .filter(r => r.partNo) // skip rows without partNo
+.filter(r => {
+  if (isNaN(r.quantity)) {
+    console.log(`⏩ Skipped invalid qty for part ${r.partNo}`);
+    return false;
+  }
+  return true;
+});
 
-//   // detect quantity
-//   const qty = getValue(row, [
-//     "Qty.",
-//     "Sale Qty"
-//   ]);
-
-//   // detect sale date
-//   const saleDateRaw = getValue(row, [
-//     "Sale Date",
-//     "SaleDate"
-//   ]);
-
-//   return {
-//   partNo: partNo?.trim(),
-//   description: description?.trim(),
-//   quantity: parseInt(qty) || 0,
-//   date: parseDate(saleDateRaw),
-
-//   branch,
-//   month: parseInt(month),
-//   year: parseInt(year),
-//   period
-// };
-
-// }).filter(r => r.partNo);
 
 
 
