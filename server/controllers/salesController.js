@@ -274,20 +274,18 @@
 
 
 
-
-
-const csv = require('csv-parser');
-const xlsx = require('xlsx');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const xlsx = require('xlsx');
+const csvParser = require('csv-parser');
 const PartInfo = require('../models/PartInfo');
 const UploadLog = require('../models/UploadLog');
 
-// 🔹 Helper to normalize keys
+// 🔹 Normalize keys to standard form
 const normalizeKey = (key = '') =>
   key.toString().trim().toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
 
-// 🔹 Helper to get value from row dynamically
+// 🔹 Get a value dynamically from row using possible keys
 const getValue = (row, possibleKeys = []) => {
   const normalizedKeys = possibleKeys.map(normalizeKey);
   for (const k of Object.keys(row)) {
@@ -296,47 +294,36 @@ const getValue = (row, possibleKeys = []) => {
   return null;
 };
 
-// 🔹 Safe date parser
-const parseDate = (val) => {
-  if (!val) return null;
-  const d = new Date(val);
-  if (!isNaN(d)) return d;
-  // fallback for Excel-style dates (numbers)
-  if (!isNaN(Number(val))) return new Date((Number(val) - 25569) * 86400 * 1000);
-  return null;
-};
-
+// 🔹 Main function
 const uploadPartInfo = async (req, res) => {
   const { branch, month, year } = req.body;
   const file = req.file;
-
   if (!file) return res.status(400).json({ error: 'Part info file is required' });
 
   try {
-    const ext = path.extname(file.originalname).toLowerCase();
     let raw = [];
+    const ext = path.extname(file.originalname).toLowerCase();
 
-    // Parse CSV or Excel
-    if (ext === '.csv') {
-      const data = fs.readFileSync(file.path, 'utf8');
-      const rows = data.split('\n').map(row => row.split(','));
-      const headers = rows[0].map(h => h.trim());
-
-      for (let i = 1; i < rows.length; i++) {
-        if (rows[i].length < headers.length) continue;
-        const row = {};
-        for (let j = 0; j < headers.length; j++) {
-          row[headers[j]] = rows[i][j]?.trim();
-        }
-        raw.push(row);
-      }
-    } else {
+    // ✅ Parse Excel
+    if (ext === '.xlsx' || ext === '.xls') {
       const workbook = xlsx.readFile(file.path);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      raw = xlsx.utils.sheet_to_json(sheet);
+      raw = xlsx.utils.sheet_to_json(sheet, { defval: '' }); // defval: '' ensures empty cells are ''
+    } else if (ext === '.csv') {
+      // Parse CSV robustly using csv-parser
+      raw = await new Promise((resolve, reject) => {
+        const rows = [];
+        fs.createReadStream(file.path)
+          .pipe(csvParser())
+          .on('data', row => rows.push(row))
+          .on('end', () => resolve(rows))
+          .on('error', err => reject(err));
+      });
+    } else {
+      return res.status(400).json({ error: 'Unsupported file format' });
     }
 
-    // Map rows dynamically
+    // Map raw rows dynamically
     const parts = raw.map(row => {
       const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
       if (!partNo) return null; // skip rows without partNo
