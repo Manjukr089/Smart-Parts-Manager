@@ -136,61 +136,66 @@ const uploadSalesData = async (req, res) => {
     console.log("Parsed rows:", raw.length);
     }
       //previously working code before report column name change
-    // const sales = raw.map(row => ({
-    //   partNo: row['Part No.']?.trim(),
-    //   description: row['Part Desc.']?.trim(),
-    //   quantity: parseInt(row['Qty.']) || 0,
-    //   date: parseDate(row['Sale Date']),
+    const sales = raw.map(row => ({
+      partNo: row['PartNo']?.trim(),
+      description: row['Part Name']?.trim(),
+      quantity: parseInt(row['Sale Qty.']) || 0,
+      date: parseDate(row['SaleDate']),
 
-    //   branch,
-    //   month: parseInt(month),
-    //   year: parseInt(year),
-    //   period
-    // })).filter(r => r.partNo)
-//this block will add after report column names change 
-      // 🔹 Flexible column detection for Toyota reports
-const sales = raw.map(row => {
+      branch,
+      month: parseInt(month),
+      year: parseInt(year),
+      period
+    })).filter(r => r.partNo)
 
-  // detect part number
-  const partNo = getValue(row, [
-    "PartNo",
-    "Part No.",
-    "partnumber"
-  ]);
+//     //this block will add after report column names change 
+//       // 🔹 Flexible column detection for Toyota reports
+// const sales = raw.map(row => {
 
-  // detect description
-  const description = getValue(row, [
-    "partdesc",
-    "PartName",
-    "Part Name",
-    "Part Desc."
-  ]);
+//   // detect part number
+//   const partNo = getValue(row, [
+//     "PartNo",
+//     "Part No.",
+//     "partnumber"
+//   ]);
 
-  // detect quantity
-  const qty = getValue(row, [
-    "Qty.",
-    "Sale Qty"
-  ]);
+//   // detect description
+//   const description = getValue(row, [
+//     "partdesc",
+//     "PartName",
+//     "Part Name",
+//     "Part Desc."
+//   ]);
 
-  // detect sale date
-  const saleDateRaw = getValue(row, [
-    "Sale Date",
-    "SaleDate"
-  ]);
+//   // detect quantity
+//   const qty = getValue(row, [
+//     "Qty.",
+//     "Sale Qty"
+//   ]);
 
-  return {
-  partNo: partNo?.trim(),
-  description: description?.trim(),
-  quantity: parseInt(qty) || 0,
-  date: parseDate(saleDateRaw),
+//   // detect sale date
+//   const saleDateRaw = getValue(row, [
+//     "Sale Date",
+//     "SaleDate"
+//   ]);
 
-  branch,
-  month: parseInt(month),
-  year: parseInt(year),
-  period
-};
+//   return {
+//   partNo: partNo?.trim(),
+//   description: description?.trim(),
+//   quantity: parseInt(qty) || 0,
+//   date: parseDate(saleDateRaw),
 
-}).filter(r => r.partNo);
+//   branch,
+//   month: parseInt(month),
+//   year: parseInt(year),
+//   period
+// };
+
+// }).filter(r => r.partNo);
+
+
+
+
     
   //   .filter(r => {
   //   // Skip negative quantities (returns)
