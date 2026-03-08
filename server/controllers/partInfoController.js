@@ -272,86 +272,108 @@
 
 
 
-
+// server/controllers/partInfoController.js
 const fs = require('fs');
 const path = require('path');
-const xlsx = require('xlsx');
 const PartInfo = require('../models/PartInfo');
 const UploadLog = require('../models/UploadLog');
-
-// 🔹 Normalize column names
-const normalizeKey = (key = "") =>
-  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
-
-// 🔹 Get value from row dynamically
-const getValue = (row, possibleKeys = []) => {
-  const normalizedKeys = possibleKeys.map(normalizeKey);
-  for (const k of Object.keys(row)) {
-    if (normalizedKeys.includes(normalizeKey(k))) return row[k];
-  }
-  return null;
-};
-
-// 🔹 Parse Excel/CSV
-const parseExcelOrCSV = (file) => {
-  const ext = path.extname(file.originalname);
-  if (ext === '.csv') {
-    const data = fs.readFileSync(file.path, 'utf8');
-    const rows = data.split('\n').map(r => r.split(','));
-    const headers = rows[0].map(h => h.trim());
-    const result = [];
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i].length < headers.length) continue;
-      const row = {};
-      for (let j = 0; j < headers.length; j++) row[headers[j]] = rows[i][j]?.trim();
-      result.push(row);
-    }
-    return result;
-  } else {
-    const workbook = xlsx.readFile(file.path);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    return xlsx.utils.sheet_to_json(sheet);
-  }
-};
+const { parseExcelOrCSV, getValue } = require('../utils/parseExcelOrCSV');
 
 // 🔹 Upload Part Info
 const uploadPartInfo = async (req, res) => {
-  const { branch, month, year } = req.body;
-  const file = req.file;
-
-  if (!file) return res.status(400).json({ error: 'Part info file is required' });
-
   try {
+    const { branch, month, year } = req.body;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: 'Part info file is required' });
+    if (!branch || !month || !year) return res.status(400).json({ error: 'Branch, month, and year are required' });
+
+    // ✅ Parse CSV or Excel
     const raw = parseExcelOrCSV(file);
 
+    // 🔹 Map dynamically with flexible column names
     const parts = raw.map(row => {
-      const partNo = getValue(row, ["partno","part no","partnumber"]);
-      const description = getValue(row, ["partdesc","part desc","part description","part name"]);
-      const modelCode = getValue(row, ["modelcode","model code"]);
-      const icc = getValue(row, ["icc"]);
-      const franchise = getValue(row, ["franchise"]);
-      const location = getValue(row, ["primaryloc","location"]);
-      const ohQty = Number(getValue(row, ["ohqty","o/h qty","stock"])) || 0;
-      const price = Number(getValue(row, ["price"])) || 0;
+      const partNo = getValue(row, ['partno','part no','partnumber']);
+      const description = getValue(row, ['partdesc','part desc','part description','part name']);
+      const modelCode = getValue(row, ['modelcode','model code']);
+      const icc = getValue(row, ['icc']);
+      const franchise = getValue(row, ['franchise']);
+      const location = getValue(row, ['primaryloc','location']);
+      const ohQty = Number(getValue(row, ['ohqty','o/h qty','stock'])) || 0;
+      const price = Number(getValue(row, ['price'])) || 0;
 
-      return { branch, month: Number(month), year: Number(year),
-               partNo: partNo?.trim(), description: description?.trim(),
-               modelCode: modelCode?.trim(), icc: icc?.trim(),
-               franchise: franchise?.trim(), location: location?.trim(),
-               ohQty, price, total: price * ohQty };
-    }).filter(p => p.partNo);
+      return {
+        branch,
+        month: Number(month),
+        year: Number(year),
+        partNo: partNo?.trim(),
+        description: description?.trim(),
+        modelCode: modelCode?.trim(),
+        icc: icc?.trim(),
+        franchise: franchise?.trim(),
+        location: location?.trim(),
+        ohQty,
+        price,
+        total: price * ohQty
+      };
+    }).filter(p => p.partNo); // ❗ Only rows with partNo
 
+    // 🔹 Clear old data and insert new
     await PartInfo.deleteMany({ branch, month, year });
     await PartInfo.insertMany(parts);
 
-    await UploadLog.create({ branch, month, year, fileType: 'partinfo', partCount: parts.length });
+    // 🔹 Log the upload
+    await UploadLog.create({
+      branch,
+      month,
+      year,
+      fileType: 'partinfo',
+      partCount: parts.length
+    });
 
+    // 🔹 Remove uploaded file
     fs.unlinkSync(file.path);
+
     res.json({ message: '✅ Part info uploaded successfully', count: parts.length });
   } catch (err) {
     console.error('❌ Part info upload failed:', err);
-    res.status(500).json({ error: 'Error saving part data', details: err.message });
+    res.status(500).json({ error: 'Upload failed', details: err.message });
   }
 };
 
-module.exports = { uploadPartInfo };
+// 🔹 Fetch Part Info with movement calculations (optional)
+const getPartInfo = async (req, res) => {
+  try {
+    const { branch, month, year } = req.query;
+    if (!branch || !month || !year)
+      return res.status(400).json({ error: 'Branch, month, and year are required' });
+
+    const parts = await PartInfo.find({ branch, month: Number(month), year: Number(year) });
+    const totalParts = parts.length;
+    const totalValue = parts.reduce((sum, p) => sum + (p.total || 0), 0);
+
+    res.json({ parts, totalParts, totalValue });
+  } catch (err) {
+    console.error('❌ Failed to fetch part info:', err);
+    res.status(500).json({ error: 'Failed to fetch parts info', details: err.message });
+  }
+};
+
+// 🔹 Get upload history for part info
+const getUploadHistory = async (req, res) => {
+  try {
+    const logs = await UploadLog.find({ fileType: 'partinfo' })
+      .sort({ uploadedAt: -1 })
+      .limit(20);
+    res.json(logs);
+  } catch (err) {
+    console.error('❌ Failed to fetch upload logs:', err);
+    res.status(500).json({ error: 'Failed to fetch upload logs' });
+  }
+};
+
+module.exports = {
+  uploadPartInfo,
+  getPartInfo,
+  getUploadHistory
+};
