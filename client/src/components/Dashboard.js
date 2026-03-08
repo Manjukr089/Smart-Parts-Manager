@@ -160,7 +160,15 @@ useEffect(() => {
     ))}
   </select>
 
-  <button onClick={handleFetch} style={buttonStyle}>Fetch</button>
+  // <button onClick={handleFetch} style={buttonStyle}>Fetch</button>
+
+        <button onClick={() => {
+          fetchParts();
+          fetchStats();
+        }} style={buttonStyle}>
+          Fetch
+        </button>
+    
 </div>
 
       <div style={{ display: 'flex', gap: '20px', marginTop: '30px', flexWrap: 'wrap' }}>
