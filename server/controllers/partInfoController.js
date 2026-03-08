@@ -60,7 +60,7 @@ const getValue = (row, possibleKeys = []) => {
 };
 
 // 🔹 Map rows dynamically
-const parts = raw.map(row => ({
+const sales = raw.map(row => ({
   partNo: getValue(row, ['partno', 'part no', 'partnumber']),
   description: getValue(row, ['partname', 'part name', 'partdesc']),
   quantity: parseInt(getValue(row, ['saleqty', 'sale qty', 'qty'])) || 0,
