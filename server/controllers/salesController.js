@@ -99,19 +99,19 @@ const parseDate = (dateStr) => {
 
 //this block will add after report column names change 
 // 🔹 Normalize column names (remove spaces, dots, lowercase)
-const normalizeKey = (key = "") =>
-  key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+// const normalizeKey = (key = "") =>
+//   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
-// 🔹 Get value from row using possible column names
-const getValue = (row, possibleKeys = []) => {
-  for (const k of Object.keys(row)) {
-    const normalized = normalizeKey(k);
-    if (possibleKeys.includes(normalized)) {
-      return row[k];
-    }
-  }
-  return null;
-};
+// // 🔹 Get value from row using possible column names
+// const getValue = (row, possibleKeys = []) => {
+//   for (const k of Object.keys(row)) {
+//     const normalized = normalizeKey(k);
+//     if (possibleKeys.includes(normalized)) {
+//       return row[k];
+//     }
+//   }
+//   return null;
+// };
 
 
 const uploadSalesData = async (req, res) => {
