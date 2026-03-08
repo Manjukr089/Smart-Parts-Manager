@@ -44,17 +44,33 @@ const uploadPartInfo = async (req, res) => {
 
 //after report change
 
-    // 🔹 Normalize column names (same as sales upload)
+// 🔹 Normalize any key
 const normalizeKey = (key = "") =>
   key.toString().trim().toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
 
-// 🔹 Helper to get value from row dynamically
+// 🔹 Get value from row dynamically
 const getValue = (row, possibleKeys = []) => {
   for (const k of Object.keys(row)) {
-    if (possibleKeys.includes(normalizeKey(k))) return row[k];
+    const nk = normalizeKey(k);
+    if (possibleKeys.map(normalizeKey).includes(nk)) {
+      return row[k];
+    }
   }
   return null;
 };
+
+// 🔹 Map rows dynamically
+const sales = raw.map(row => ({
+  partNo: getValue(row, ['partno', 'part no', 'partnumber']),
+  description: getValue(row, ['partname', 'part name', 'partdesc']),
+  quantity: parseInt(getValue(row, ['saleqty', 'sale qty', 'qty'])) || 0,
+  date: parseDate(getValue(row, ['saledate', 'sale date'])),
+
+  branch,
+  month: parseInt(month),
+  year: parseInt(year),
+  period
+})).filter(r => r.partNo && r.date);
 
 const parts = raw.map(row => {
   const partNo = getValue(row, ['partno', 'part no', 'partnumber']);
