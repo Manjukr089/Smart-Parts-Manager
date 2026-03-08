@@ -77,19 +77,26 @@ useEffect(() => {
     }
   };
 
-  const handleFetch = () => {
-    fetchParts();
-    fetchStats();
+  //previously working before report change
+  // const handleFetch = () => {
+  //   fetchParts();
+  //   fetchStats();
+  // };
+  // useEffect(() => {
+  //   handleFetch();
+  // }, []);
+
+  //afer report change
+useEffect(() => {
+  const loadData = async () => {
+    await fetchParts();
+    await fetchStats();
   };
 
+  loadData();
+}, [branch, month, year]);
 
- 
-  useEffect(() => {
-    handleFetch();
-  }, []);
-
-
-
+  
   return (
     <div style={{ padding: '20px', fontFamily: 'Segoe UI' }}>
       <h2 style={{ marginBottom: '20px' }}>📦 MyParts Assistant - Dashboard</h2>
