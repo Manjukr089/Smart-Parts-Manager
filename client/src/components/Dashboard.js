@@ -77,24 +77,15 @@ useEffect(() => {
     }
   };
 
-  //previously working before report change
-  // const handleFetch = () => {
-  //   fetchParts();
-  //   fetchStats();
-  // };
-  // useEffect(() => {
-  //   handleFetch();
-  // }, []);
-
-  //afer report change
-useEffect(() => {
-  const loadData = async () => {
-    await fetchParts();
-    await fetchStats();
+ 
+  const handleFetch = () => {
+    fetchParts();
+    fetchStats();
   };
+  useEffect(() => {
+    handleFetch();
+  }, []);
 
-  loadData();
-}, [branch, month, year]);
 
   
   return (
@@ -160,14 +151,9 @@ useEffect(() => {
     ))}
   </select>
 
-  // <button onClick={handleFetch} style={buttonStyle}>Fetch</button>
+  <button onClick={handleFetch} style={buttonStyle}>Fetch</button>
 
-        <button onClick={() => {
-          fetchParts();
-          fetchStats();
-        }} style={buttonStyle}>
-          Fetch
-        </button>
+       
     
 </div>
 
